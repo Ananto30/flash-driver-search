@@ -1,6 +1,22 @@
 package events
 
-import "github.com/Ananto30/govent"
+import (
+	"github.com/Ananto30/govent"
+)
+
+
+
+var publisher chan govent.EventObject
+
+// NewPublisher creates a new publisher
+func NewPublisher() {
+	publisher = govent.NewEventPublisher()
+}
+
+// GetPublisher returns the default publisher
+func GetPublisher() chan govent.EventObject {
+	return publisher
+}
 
 // my event types, registering to govent
 const (
@@ -8,7 +24,7 @@ const (
 	Found  govent.EventType = iota
 )
 
-// MessageEvent is an event type for messaging
+// SearchEvent is an event type for searching
 type SearchEvent struct {
 	ID       string
 	UserID   string
@@ -16,9 +32,10 @@ type SearchEvent struct {
 	DriverID string
 }
 
-var publisher chan govent.EventObject
-
-func GetPublisher() chan govent.EventObject {
-	publisher := govent.NewEventPublisher()
-	return publisher
+// FoundEvent is an event type for found
+type FoundEvent struct {
+	ID       string
+	UserID   string
+	Lat, Lon float64
+	DriverID string
 }

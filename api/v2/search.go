@@ -1,10 +1,11 @@
 package v2
 
 import (
+	"github.com/Ananto30/govent"
 	"encoding/json"
 	"fmt"
+	"github/ananto/driver_search/events"
 	"github/ananto/driver_search/storages"
-	"github/ananto/driver_search/tasks"
 	"log"
 	"net/http"
 	"strconv"
@@ -40,29 +41,29 @@ func SearchV2(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// publisher := events.GetPublisher()
-	// publisher <- govent.EventObject{
-	// 	EventType: events.Search,
-	// 	Event: events.SearchEvent{
-	// 		ID:     key,
-	// 		UserID: fmt.Sprintf("requestor_%s", key),
-	// 		Lat:    body.Lat,
-	// 		Lon:    body.Lon,
-	// 	},
-	// }
-
-	notifier := make(chan bool, 1)
-	rTask := tasks.NewRequestDriverTask(key, fmt.Sprintf("requestor_%s", key), body.Lat, body.Lon)
-	go rTask.Run(notifier)
-
-	found := <-notifier
-	if found {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf(`{"driver found": %s}`, key)))
-	} else {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(fmt.Sprintf(`{"driver not found": %s}`, key)))
+	publisher := events.GetPublisher()
+	publisher <- govent.EventObject{
+		EventType: events.Search,
+		Event: events.SearchEvent{
+			ID:     key,
+			UserID: fmt.Sprintf("requestor_%s", key),
+			Lat:    body.Lat,
+			Lon:    body.Lon,
+		},
 	}
+
+	// notifier := make(chan bool, 1)
+	// rTask := tasks.NewRequestDriverTask(key, fmt.Sprintf("requestor_%s", key), body.Lat, body.Lon)
+	// go rTask.Run(notifier)
+
+	// found := <-notifier
+	// if found {
+	// 	w.WriteHeader(http.StatusOK)
+	// 	w.Write([]byte(fmt.Sprintf(`{"driver found": %s}`, key)))
+	// } else {
+	// 	w.WriteHeader(http.StatusNotFound)
+	// 	w.Write([]byte(fmt.Sprintf(`{"driver not found": %s}`, key)))
+	// }
 
 	// w.WriteHeader(http.StatusOK)
 	// w.Write([]byte(fmt.Sprintf(`{"request_id": %s}`, key)))

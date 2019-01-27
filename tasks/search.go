@@ -3,10 +3,13 @@ package tasks
 import (
 	"errors"
 	"fmt"
+	"github/ananto/driver_search/events"
 	"github/ananto/driver_search/storages"
 	"log"
 	"strconv"
 	"time"
+
+	"github.com/Ananto30/govent"
 )
 
 // Request invalid reasons
@@ -34,7 +37,7 @@ func NewRequestDriverTask(id, userID string, lat, lon float64) *RequestDriverTas
 }
 
 // Run is the function for executing the task, this task validating the request and launches another goroutine called 'doSearch' which does the search.
-func (r *RequestDriverTask) Run(notifier chan bool) {
+func (r *RequestDriverTask) Run() {
 	ticker := time.NewTicker(time.Second * 5)
 
 	// With the done channel, we receive if the driver was found
@@ -50,7 +53,7 @@ func (r *RequestDriverTask) Run(notifier chan bool) {
 				go r.doSearch(done)
 			case ErrExpired:
 				sendInfo(r, "Sorry, we didn't find any driver.")
-				notifier <- false
+				// notifier <- false
 				return
 			case ErrCanceled:
 				log.Printf("Request %s has been canceled.", r.ID)
@@ -62,7 +65,7 @@ func (r *RequestDriverTask) Run(notifier chan bool) {
 		case _, notDone := <-done:
 			if !notDone {
 				sendInfo(r, fmt.Sprintf("Driver %s found", r.DriverID))
-				notifier <- true
+				// notifier <- true
 				ticker.Stop()
 				return
 			}
@@ -90,6 +93,18 @@ func (r *RequestDriverTask) doSearch(done chan struct{}) {
 	drivers := rClient.SearchDrivers(1, r.Lat, r.Lon, 2000)
 	if len(drivers) == 1 {
 		// Driver found
+		// we can throw a found event
+		publisher := events.GetPublisher()
+		publisher <- govent.EventObject{
+			EventType: events.Search,
+			Event: events.FoundEvent{
+				ID:       r.ID,
+				UserID:   fmt.Sprintf("requestor_%s", r.ID),
+				Lat:      r.Lat,
+				Lon:      r.Lon,
+				DriverID: drivers[0].Name,
+			},
+		}
 		// Remove driver location from redis
 		rClient.RemoveDriverLocation(drivers[0].Name)
 		r.DriverID = drivers[0].Name
@@ -102,4 +117,12 @@ func (r *RequestDriverTask) doSearch(done chan struct{}) {
 func sendInfo(r *RequestDriverTask, message string) {
 	log.Println("Message to user: ", r.UserID)
 	log.Println(message)
+}
+
+// RunSearchEvent starts a search request in goroutine when it receives the search event
+func RunSearchEvent(e govent.Event) {
+	if e, ok := e.(events.SearchEvent); ok {
+		rTask := NewRequestDriverTask(e.ID, e.UserID, e.Lat, e.Lon)
+		go rTask.Run()
+	}
 }
